@@ -139,6 +139,8 @@ def calculate_PDF(fileDF, sncl, starttime, endtime, concierge):
 
 
 def plot_PDF(sncl, starttime, endtime, pdfDF, modesDF, maxsDF, minsDF, concierge):
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     
     # Get the logger from the concierge
