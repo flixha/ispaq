@@ -162,7 +162,9 @@ def PSD_metrics(concierge):
                 day = day.strftime("%Y-%m-%d")
                 fnames = sncl_pattern + "_" + str(day) + "_PSDCorrected.csv"
                 files = []
-                for root, dirnames, filenames in os.walk(concierge.psd_dir):
+                for root, dirnames, filenames in os.walk(os.path.join(concierge.psd_dir,
+                                                         sncl_pattern.split('.')[0],
+                                                         sncl_pattern.split('.')[1])):
                     for filename in fnmatch.filter(filenames, fnames):
                         files.append(os.path.join(root, filename))
                 
@@ -191,12 +193,21 @@ def PSD_metrics(concierge):
             
         for (index, sncl) in enumerate(snclList):
             logger.info('%03d Calculating PDF values for %s' % (index, sncl))
+            try:
+                [pdfDF,modesDF, maxDF, minDF] = PDF_aggregator.calculate_PDF(fileDF, sncl, starttime, endtime, concierge)
+            except Exception as e:
+                logger.error("PDF_aggregator.calculate_PDF failed: '%s'" % e)
                 
-            
-            [pdfDF,modesDF, maxDF, minDF] = PDF_aggregator.calculate_PDF(fileDF, sncl, starttime, endtime, concierge)
 
+            logger.info("Completed PDF aggregation")
             if ('plot' in concierge.pdf_type) and not pdfDF.empty:
-                PDF_aggregator.plot_PDF(sncl, starttime, endtime, pdfDF, modesDF, maxDF, minDF, concierge)
+                logger.info("Start PDF plot")
+                #PDF_aggregator.plot_PDF(sncl, starttime, endtime, pdfDF, modesDF, maxDF, minDF, concierge)
+                try:
+                    PDF_aggregator.plot_PDF(sncl, starttime, endtime, pdfDF, modesDF, maxDF, minDF, concierge)
+                except Exception as e:
+                    logger.error("PDF_aggregator.plot_PDF failed: '%s'" % e)
+
 #             
 
 
