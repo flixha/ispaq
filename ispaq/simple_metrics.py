@@ -71,7 +71,7 @@ def simple_metrics(concierge):
     # function metadata dictionary
     function_metadata = concierge.function_by_logic['simple']
     if ('numSpikes') in function_metadata and len(function_metadata) == 1:
-        channelFilter = '[BH][HX].'
+        channelFilter = '[BHSE][HX].'
     if ('STALTA') in function_metadata and len(function_metadata) == 1:
         channelFilter = '[BHCDESLM][HPLGNX].'
 
@@ -163,7 +163,7 @@ def simple_metrics(concierge):
 
             if 'STALTA' in function_metadata:
             
-                if av.channel.startswith(('BH','HH','CH','DH','EH','SH','LH','MH','DP','SP','LP','EP','EL','HL','LL','BL','SL','BX','HX')):
+                if av.channel.startswith(('BH','HH','CH','DH','EH','SH','LH','MH','DP','SP','LP','EP','EL','HL','LL','BL','SL','BX','HX','NH','XH','EN')):
                     try:
                         r_stream_stalta = concierge.get_dataselect(av.network, av.station, av.location, av.channel, starttime, endtime)
                     except Exception as e:
@@ -193,7 +193,7 @@ def simple_metrics(concierge):
                     
             if 'numSpikes' in function_metadata:
                 # Limit this metric to BH. and HH. channels
-                if av.channel.startswith(('BH','HH','BX','HX')):
+                if av.channel.startswith(('BH','HH','SH','EH','BX','HX','NH','XH','DH')):
                     windowSize = 41
                     thresholdMin = 10
                            
