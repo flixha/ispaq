@@ -7,6 +7,13 @@ from __future__ import (absolute_import, division, print_function)
 
 # Basic modules
 import os
+# FH: hard-limit all python execution to one thread so that simpleMetrics aren't computed uncontrolled in parallel
+os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+
 import sys
 import imp
 import argparse
