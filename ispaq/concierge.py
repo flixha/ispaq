@@ -269,8 +269,10 @@ class Concierge(object):
             self.fileDates = []
             for sncl_pattern in self.sncl_patterns:
                 matching_files = []
-                fpattern1 = '%s' % (sncl_pattern + '.[12][0-9][0-9][0-9].[0-9][0-9][0-9]')
+                fpattern1 = '%s' % (sncl_pattern + '.D.[12][0-9][0-9][0-9].[0-9][0-9][0-9]')
                 fpattern2 = '%s' % (fpattern1 + '.[A-Z]')
+                print('sncl-pattern1: ' + fpattern1)
+                print('sncl-pattern2: ' + fpattern2)
                 for root, dirnames, fnames in os.walk(self.dataselect_url):
                     for fname in fnmatch.filter(fnames, fpattern1) + fnmatch.filter(fnames, fpattern2):
                         matching_files.append(os.path.join(root,fname))
@@ -281,8 +283,8 @@ class Concierge(object):
                     for _file in matching_files:
                         try:
                             _fileSNCL = _file.split("/")[-1]
-                            _fileYear = _fileSNCL.split(".")[4]
-                            _fileJday = _fileSNCL.split(".")[5]
+                            _fileYear = _fileSNCL.split(".")[5]
+                            _fileJday = _fileSNCL.split(".")[6]
                             _fileDate = UTCDateTime("-".join([_fileYear,_fileJday]))
                             self.fileDates.append([_fileDate])
                         except Exception as e:
@@ -521,11 +523,15 @@ class Concierge(object):
                     for n in sncl_inventory.networks:
                         for s in n.stations:
                             for c in s.channels:
-                                if c.start_date < _endtime and c.end_date > _starttime:
+                                if c.start_date < _endtime and (c.end_date > _starttime or c.end_date is None):
                                     snclId = self.get_sncl_pattern(n.code, s.code, c.location_code, c.code)
+                                    if c.sensor is None:
+                                        description = " "
+                                    else:
+                                        description = c.sensor.description
                                     df.loc[len(df)] = [n.code, s.code, c.location_code, c.code,
                                                        c.latitude, c.longitude, c.elevation, c.depth,
-                                                       c.azimuth, c.dip, c.sensor.description,
+                                                       c.azimuth, c.dip, description,
                                                        None,     # TODO:  Figure out how to get instrument 'scale'
                                                        None,     # TODO:  Figure out how to get instrument 'scalefreq'
                                                        None,     # TODO:  Figure out how to get instrument 'scaleunits'
@@ -659,7 +665,8 @@ class Concierge(object):
             if self.station_client is None:
                 # Use pre-existing internal dataframe if we are using local data, filtered by time 
                 df = self.initial_availability
-                df = df[(df['starttime'] < _endtime-1) & (df['endtime'] > _starttime)]
+                df = df[(df['starttime'] < _endtime-1) & ((df['endtime'] > _starttime) | (df['endtime'].isnull()))]
+                #df = df[(df['starttime'] < _endtime-1) & (df['endtime'].isnull())] # FH: just temporary solution to
                 if df is None:
                     continue 
             else:
@@ -671,14 +678,16 @@ class Concierge(object):
                                                                       location=_location, channel=_channel,
                                                                       includerestricted=None,
                                                                       latitude=latitude, longitude=longitude,
-                                                                      minradius=minradius, maxradius=maxradius,                                                                
+                                                                      minradius=minradius, maxradius=maxradius,
                                                                       level="channel",matchtimeseries=True)
                 except Exception as e:
                     if (minradius):
                         err_msg = "No stations found for %s within radius %s-%s degrees of latitude,longitude %s,%s" % (_sncl_pattern,minradius,maxradius,latitude,longitude)
                     else:
                         err_msg = "No stations found for %s" % (_sncl_pattern)
-                    self.logger.debug(str(e).strip('\n'))
+                    #self.logger.debug(str(e).strip('\n'))
+                    # FH:
+                    self.logger.error(e, exc_info=True)
                     self.logger.info(err_msg)
                     continue
 
@@ -719,7 +728,7 @@ class Concierge(object):
 
             # Subset based on locally available data ---------------------------
             if self.dataselect_client is None:
-                fpattern1 = '%s.%s' % (_sncl_pattern,_starttime.strftime('%Y.%j'))
+                fpattern1 = '%s.D.%s' % (_sncl_pattern,_starttime.strftime('%Y.%j'))
                 fpattern2 = '%s' % (fpattern1 + '.[A-Z]')
                 
                 matching_files = []
@@ -860,7 +869,7 @@ class Concierge(object):
 
             if (nday == 1):
                 _sncl_pattern = self.get_sncl_pattern(network, station, location, channel)
-                fpattern1 = '%s.%s' % (_sncl_pattern,_starttime.strftime('%Y.%j'))
+                fpattern1 = '%s.D.%s' % (_sncl_pattern,_starttime.strftime('%Y.%j'))
                 fpattern2 = '%s' % (fpattern1 + '.[A-Z]')
 
                 matching_files = []
@@ -882,7 +891,10 @@ class Concierge(object):
                         if not inclusiveEnd:
                             _endtime = _endtime - 0.000001
                         py_stream = obspy.read(filepath)
+                        print('Running across 1 day, start: '+str(starttime) + ' endtime: '+str(endtime))
                         py_stream = py_stream.slice(_starttime, _endtime, nearest_sample=False)
+                        # py_stream = py_stream.merge() # fh
+                        #fh py_stream = py_stream.trim(_starttime, _endtime, pad=True, nearest_sample=True)
                         if (StrictVersion(obspy.__version__) < StrictVersion("1.1.0")): 
                             flag_dict = obspy.io.mseed.util.get_timing_and_data_quality(filepath)
                             act_flags = [0,0,0,0,0,0,0,0] # TODO:  Find a way to read act_flags
@@ -957,7 +969,7 @@ class Concierge(object):
                         end = _endtime
 
                     _sncl_pattern = self.get_sncl_pattern(network, station, location, channel)
-                    filename = '%s.%s' % (_sncl_pattern,_starttime.strftime('%Y.%j'))
+                    filename = '%s.D.%s' % (_sncl_pattern,_starttime.strftime('%Y.%j'))
                     self.logger.debug("read local miniseed file for %s..." % filename)
                     fpattern1 = self.dataselect_url + '/' + filename + '.[12][0-9][0-9][0-9].[0-9][0-9][0-9]'
                     fpattern2 = fpattern1 + '.[A-Z]'
@@ -984,7 +996,10 @@ class Concierge(object):
                     x.close()
                     if not inclusiveEnd:
                             _endtime = _endtime - 0.000001
+                    print('Running across multiple days: day '+str(day) )
                     py_stream = py_stream.slice(_starttime, _endtime, nearest_sample=False) 
+                    # py_stream = py_stream.merge() # fh
+                    #fh py_stream = py_stream.trim(_starttime, _endtime, pad=True, nearest_sample=True)
                     # NOTE:  ObsPy does not store state-of-health flags with each stream.
                     if (StrictVersion(obspy.__version__) < StrictVersion("1.1.0")):
                         flag_dict = obspy.io.mseed.util.get_timing_and_data_quality(filepath)
